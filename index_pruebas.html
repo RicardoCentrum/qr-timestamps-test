@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pruebas QR - TimeStamps</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: #f4f4f4;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 1rem;
+      box-shadow: 0 0 15px rgba(0, 48, 107, 0.5);
+      z-index: 10000;
+      display: none;
+      text-align: center;
+    }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen">
+  <div class="w-full max-w-md p-6 bg-white/80 rounded-xl shadow">
+    <div class="mb-4">
+      <label class="block mb-2 font-bold">Código QR:</label>
+      <input id="inputQR" type="text" class="w-full p-2 border rounded" placeholder="Escanea aquí" autofocus />
+    </div>
+    <div class="mb-4">
+      <label class="block mb-2 font-bold">Usuario:</label>
+      <input id="usuario" type="text" class="w-full p-2 border rounded" placeholder="Nombre del usuario" />
+    </div>
+    <div class="mb-4 text-center">
+      <button onclick="modo='entrada'" class="bg-green-700 text-white px-4 py-2 rounded-xl mr-2">Modo Entrada</button>
+      <button onclick="modo='salida'" class="bg-red-700 text-white px-4 py-2 rounded-xl">Modo Salida</button>
+    </div>
+    <div id="resultado" class="text-center font-bold mt-4"></div>
+  </div>
+
+  <div id="modalAviso" class="modal text-lg"></div>
+
+  <script>
+    const API_URL = "https://ldjrpfsbpcfninntffoj.supabase.co/functions/v1/registrar_qr";
+    let modo = "entrada";
+
+    function extraerDatosQR(qr) {
+      const match = qr.match(/R:(.*?)\|L:(.*?)\|T:(.*)/);
+      if (!match) return null;
+      return {
+        referencia: match[1].trim(),
+        lote: match[2].trim(),
+        timestamp: match[3].trim()
+      };
+    }
+
+    function mostrarModal(mensaje, color) {
+      const modal = document.getElementById("modalAviso");
+      modal.textContent = mensaje;
+      modal.style.backgroundColor = color;
+      modal.style.display = "block";
+      setTimeout(() => modal.style.display = "none", 2500);
+    }
+
+    document.getElementById("inputQR").addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        const contenido = e.target.value.trim();
+        const usuario = document.getElementById("usuario").value.trim();
+        e.target.value = "";
+
+        const datos = extraerDatosQR(contenido);
+        if (!datos) {
+          mostrarModal("❌ No se puede leer QR", "#6b7280");
+          return;
+        }
+
+        fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ registros: [{ ...datos, modo, usuario }] })
+        })
+        .then(res => res.json())
+        .then(res => {
+          console.log("Respuesta del servidor:", res);
+          console.log("Resultado individual:", res.resultados[0]);
+
+          const r = res.resultados ? res.resultados[0] : null;
+
+          if (!r) {
+            mostrarModal("❌ Respuesta inválida", "#6b7280");
+            return;
+          }
+
+          if (r.status === "ok" && r.color === "verde") mostrarModal("✅ Producto agregado", "#047857");
+          else if (r.status === "ok" && r.color === "rojo") mostrarModal("🛑 Producto se va a retirar", "#b91c1c");
+          else if (r.status === "repetido") mostrarModal("📦 Ya escaneado anteriormente", "#0284c7");
+          else if (r.status === "extraido_previo") mostrarModal(`⚠️ Ya extraído por ${r.usuario}`, "#facc15");
+          else if (r.status === "nuevo_producto") mostrarModal("🆕 Producto no existe", "#22c55e");
+          else mostrarModal("❌ Error en el QR", "#6b7280");
+        })
+        .catch(err => {
+          console.error("Error de red:", err);
+          mostrarModal("❌ Error de conexión", "#b91c1c");
+        });
+      }
+    });
+  </script>
+</body>
+</html>
