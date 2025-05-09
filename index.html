@@ -48,66 +48,80 @@
 const API_URL = "https://ldjrpfsbpcfninntffoj.functions.supabase.co/registrar_qr";
 let modo = "entrada";
 
-    function extraerDatosQR(qr) {
-      const match = qr.match(/R:(.*?)\|L:(.*?)\|T:(.*)/);
-      if (!match) return null;
-      return {
-        referencia: match[1].trim(),
-        lote: match[2].trim(),
-        timestamp: match[3].trim()
-      };
-    }
+function extraerDatosQR(qr) {
+  const match = qr.match(/R:(.*?)\|L:(.*?)\|T:(.*)/);
+  if (!match) return null;
+  return {
+    referencia: match[1].trim(),
+    lote: match[2].trim(),
+    timestamp: match[3].trim()
+  };
+}
 
-    function mostrarModal(mensaje, color) {
-      const modal = document.getElementById("modalAviso");
-      modal.textContent = mensaje;
-      modal.style.backgroundColor = color;
-      modal.style.display = "block";
-      setTimeout(() => modal.style.display = "none", 2500);
-    }
+function mostrarModal(mensaje, color) {
+  const modal = document.getElementById("modalAviso");
+  modal.textContent = mensaje;
+  modal.style.backgroundColor = color;
+  modal.style.display = "block";
+  setTimeout(() => modal.style.display = "none", 2500);
+}
 
-    document.getElementById("inputQR").addEventListener("keydown", function(e) {
-      if (e.key === "Enter") {
-        const contenido = e.target.value.trim();
-        const usuario = document.getElementById("usuario").value.trim();
-        e.target.value = "";
+async function procesarQR(contenido, usuario) {
+  const datos = extraerDatosQR(contenido);
+  if (!datos) {
+    mostrarModal("❌ No se puede leer QR", "#6b7280");
+    return;
+  }
 
-        const datos = extraerDatosQR(contenido);
-        if (!datos) {
-          mostrarModal("❌ No se puede leer QR", "#6b7280");
-          return;
-        }
+  const payload = {
+    registros: [{ ...datos, modo, usuario }]
+  };
 
-        fetch(API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ registros: [{ ...datos, modo, usuario }] })
-        })
-        .then(res => res.json())
-        .then(res => {
-          console.log("Respuesta del servidor:", res);
-          console.log("Resultado individual:", res.resultados[0]);
+  console.log("Enviando a Supabase:", payload);
 
-          const r = res.resultados ? res.resultados[0] : null;
-
-          if (!r) {
-            mostrarModal("❌ Respuesta inválida", "#6b7280");
-            return;
-          }
-
-          if (r.status === "ok" && r.color === "verde") mostrarModal("✅ Producto agregado", "#047857");
-          else if (r.status === "ok" && r.color === "rojo") mostrarModal("🛑 Producto se va a retirar", "#b91c1c");
-          else if (r.status === "repetido") mostrarModal("📦 Ya escaneado anteriormente", "#0284c7");
-          else if (r.status === "extraido_previo") mostrarModal(`⚠️ Ya extraído por ${r.usuario}`, "#facc15");
-          else if (r.status === "nuevo_producto") mostrarModal("🆕 Producto no existe", "#22c55e");
-          else mostrarModal("❌ Error en el QR", "#6b7280");
-        })
-        .catch(err => {
-          console.error("Error de red:", err);
-          mostrarModal("❌ Error de conexión", "#b91c1c");
-        });
-      }
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
     });
+
+    const json = await res.json();
+    console.log("Respuesta Supabase:", json);
+
+    const r = json.resultados?.[0];
+
+    if (!r) {
+      mostrarModal("❌ Respuesta inválida", "#6b7280");
+      return;
+    }
+
+    if (r.status === "ok" && r.color === "verde") mostrarModal("✅ Producto agregado", "#047857");
+    else if (r.status === "ok" && r.color === "rojo") mostrarModal("🛑 Producto se va a retirar", "#b91c1c");
+    else if (r.status === "repetido") mostrarModal("📦 Ya escaneado anteriormente", "#0284c7");
+    else if (r.status === "extraido_previo") mostrarModal(`⚠️ Ya extraído por ${r.usuario}`, "#facc15");
+    else if (r.status === "nuevo_producto") mostrarModal("🆕 Producto no existe", "#22c55e");
+    else if (r.status === "error" && r.mensaje) mostrarModal(`⚠️ ${r.mensaje}`, "#6b7280");
+    else mostrarModal("❌ Error en el QR", "#6b7280");
+  } catch (err) {
+    console.error("Error de red:", err);
+    mostrarModal("❌ Error de conexión", "#b91c1c");
+  }
+}
+
+const inputQR = document.getElementById("inputQR");
+inputQR.addEventListener("keydown", function(e) {
+  if (e.key === "Enter") {
+    const contenido = inputQR.value.trim();
+    const usuario = document.getElementById("usuario").value.trim();
+    inputQR.value = "";
+    procesarQR(contenido, usuario);
+  }
+});
+  </script>
+</body>
+</html>
+
   </script>
 </body>
 </html>
