@@ -86,6 +86,8 @@
         .then(res => res.json())
         .then(res => {
           console.log("Respuesta del servidor:", res);
+          console.log("Resultado individual:", res.resultados[0]);
+
           const r = res.resultados ? res.resultados[0] : null;
 
           if (!r) {
