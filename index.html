@@ -96,13 +96,30 @@ async function procesarQR(contenido, usuario) {
       return;
     }
 
-    if (r.status === "ok" && r.color === "verde") mostrarModal("✅ Producto agregado", "#047857");
-    else if (r.status === "ok" && r.color === "rojo") mostrarModal("🛑 Producto se va a retirar", "#b91c1c");
-    else if (r.status === "repetido") mostrarModal("📦 Ya escaneado anteriormente", "#0284c7");
-    else if (r.status === "extraido_previo") mostrarModal(`⚠️ Ya extraído por ${r.usuario}`, "#facc15");
-    else if (r.status === "nuevo_producto") mostrarModal("🆕 Producto no existe", "#22c55e");
-    else if (r.status === "error" && r.mensaje) mostrarModal(`⚠️ ${r.mensaje}`, "#6b7280");
-    else mostrarModal("❌ Error en el QR", "#6b7280");
+    if (r.status === "ok" && r.color === "verde") {
+      mostrarModal("✅ Producto agregado", "#047857");
+    }
+    else if (r.status === "ok" && r.color === "rojo") {
+      const msg = r.fecha_salida_str
+        ? `🛑 Retirado por ${r.usuario} el ${r.fecha_salida_str}`
+        : "🛑 Producto se va a retirar";
+      mostrarModal(msg, "#b91c1c");
+    }
+    else if (r.status === "repetido") {
+      mostrarModal("📦 Ya escaneado anteriormente", "#0284c7");
+    }
+    else if (r.status === "extraido_previo") {
+      mostrarModal(`⚠️ Ya extraído por ${r.usuario}`, "#facc15");
+    }
+    else if (r.status === "nuevo_producto") {
+      mostrarModal("🆕 Producto no existe", "#22c55e");
+    }
+    else if (r.status === "error" && r.mensaje) {
+      mostrarModal(`⚠️ ${r.mensaje}`, "#6b7280");
+    }
+    else {
+      mostrarModal("❌ Error en el QR", "#6b7280");
+    }
   } catch (err) {
     console.error("Error de red:", err);
     mostrarModal("❌ Error de conexión", "#b91c1c");
@@ -118,10 +135,6 @@ inputQR.addEventListener("keydown", function(e) {
     procesarQR(contenido, usuario);
   }
 });
-  </script>
-</body>
-</html>
-
   </script>
 </body>
 </html>
