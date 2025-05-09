@@ -45,8 +45,8 @@
   <div id="modalAviso" class="modal text-lg"></div>
 
   <script>
-    const API_URL = "https://ldjrpfsbpcfninntffoj.supabase.co/functions/v1/registrar_qr";
-    let modo = "entrada";
+const API_URL = "https://ldjrpfsbpcfninntffoj.functions.supabase.co/registrar_qr";
+let modo = "entrada";
 
     function extraerDatosQR(qr) {
       const match = qr.match(/R:(.*?)\|L:(.*?)\|T:(.*)/);
