@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Visor 3D OBJ - Almacén</title>
+  <title>Visor 3D OBJ - Almacén (Final GitHub Pages)</title>
   <style>
     body { margin: 0; overflow: hidden; background: #111; }
     #info {
@@ -24,7 +24,7 @@
   <button onclick="buscarUbicacion()">Buscar</button>
 </div>
 
-<!-- SCRIPTS: UMD version -->
+<!-- Scripts compatibles con GitHub Pages -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.148.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.148.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.148.0/examples/js/loaders/OBJLoader.js"></script>
@@ -45,7 +45,6 @@
   document.body.appendChild(renderer.domElement);
 
   const controls = new THREE.OrbitControls(camera, renderer.domElement);
-
   scene.add(new THREE.AmbientLight(0xffffff, 1));
   const dirLight = new THREE.DirectionalLight(0xffffff, 1);
   dirLight.position.set(100, 200, 100);
@@ -98,6 +97,8 @@
 
     resaltarZona(data.ubicacion);
   }
+
+  window.buscarUbicacion = buscarUbicacion;
 
   function animate() {
     requestAnimationFrame(animate);
