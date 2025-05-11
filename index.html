@@ -1,140 +1,115 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Pruebas QR - TimeStamps</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <title>Visor 3D OBJ - Almacén</title>
   <style>
-    body {
-      background: #f4f4f4;
-      font-family: 'Segoe UI', sans-serif;
+    body { margin: 0; overflow: hidden; background: #111; }
+    #info {
+      position: absolute; top: 10px; left: 10px;
+      background: rgba(255,255,255,0.8); padding: 8px 12px;
+      font-family: sans-serif; z-index: 10;
     }
-    .modal {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      padding: 20px;
-      background: rgba(255, 255, 255, 0.9);
-      border-radius: 1rem;
-      box-shadow: 0 0 15px rgba(0, 48, 107, 0.5);
-      z-index: 10000;
-      display: none;
-      text-align: center;
+    #buscador {
+      position: absolute; top: 10px; right: 10px;
+      background: rgba(255,255,255,0.9); padding: 8px 12px;
+      font-family: sans-serif; z-index: 10;
     }
   </style>
 </head>
-<body class="flex flex-col items-center justify-center min-h-screen">
-  <div class="w-full max-w-md p-6 bg-white/80 rounded-xl shadow">
-    <div class="mb-4">
-      <label class="block mb-2 font-bold">Código QR:</label>
-      <input id="inputQR" type="text" class="w-full p-2 border rounded" placeholder="Escanea aquí" autofocus />
-    </div>
-    <div class="mb-4">
-      <label class="block mb-2 font-bold">Usuario:</label>
-      <input id="usuario" type="text" class="w-full p-2 border rounded" placeholder="Nombre del usuario" />
-    </div>
-    <div class="mb-4 text-center">
-      <button onclick="modo='entrada'" class="bg-green-700 text-white px-4 py-2 rounded-xl mr-2">Modo Entrada</button>
-      <button onclick="modo='salida'" class="bg-red-700 text-white px-4 py-2 rounded-xl">Modo Salida</button>
-    </div>
-    <div id="resultado" class="text-center font-bold mt-4"></div>
-  </div>
+<body>
+<div id="info">🔍 Escribe referencia para ubicar producto</div>
+<div id="buscador">
+  <input type="text" id="inputRef" placeholder="Referencia...">
+  <button onclick="buscarUbicacion()">Buscar</button>
+</div>
 
-  <div id="modalAviso" class="modal text-lg"></div>
+<!-- SCRIPTS: UMD version -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.148.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.148.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.148.0/examples/js/loaders/OBJLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
-  <script>
-const API_URL = "https://ldjrpfsbpcfninntffoj.functions.supabase.co/registrar_qr";
-let modo = "entrada";
+<script>
+  const supabaseClient = supabase.createClient(
+    'https://ldjrpfsbpcfninntffoj.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkanJwZnNicGNmbmlubnRmZm9qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY0MjcxNjYsImV4cCI6MjA2MjAwMzE2Nn0.vxPo7XXaeKPa-jDQRA2jvOJ7dvJZDHRNZB7blbONNZo'
+  );
 
-function extraerDatosQR(qr) {
-  const match = qr.match(/R:(.*?)\|L:(.*?)\|T:(.*)/);
-  if (!match) return null;
-  return {
-    referencia: match[1].trim(),
-    lote: match[2].trim(),
-    timestamp: match[3].trim()
-  };
-}
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.set(0, 100, 300);
 
-function mostrarModal(mensaje, color) {
-  const modal = document.getElementById("modalAviso");
-  modal.textContent = mensaje;
-  modal.style.backgroundColor = color;
-  modal.style.display = "block";
-  setTimeout(() => modal.style.display = "none", 2500);
-}
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
 
-async function procesarQR(contenido, usuario) {
-  const datos = extraerDatosQR(contenido);
-  if (!datos) {
-    mostrarModal("❌ No se puede leer QR", "#6b7280");
-    return;
-  }
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
 
-  const payload = {
-    registros: [{ ...datos, modo, usuario }]
-  };
+  scene.add(new THREE.AmbientLight(0xffffff, 1));
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+  dirLight.position.set(100, 200, 100);
+  scene.add(dirLight);
 
-  console.log("Enviando a Supabase:", payload);
+  const zonas = {};
 
-  try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+  const loader = new THREE.OBJLoader();
+  loader.load('ALMACEN.obj', (obj) => {
+    obj.traverse(child => {
+      if (child.isMesh) {
+        child.material = new THREE.MeshStandardMaterial({ color: 0x999999 });
+        zonas[child.name] = child;
+      }
     });
 
-    const json = await res.json();
-    console.log("Respuesta Supabase:", json);
+    const box = new THREE.Box3().setFromObject(obj);
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+    controls.target.copy(center);
+    camera.lookAt(center);
 
-    const r = json.resultados?.[0];
+    scene.add(new THREE.BoxHelper(obj, 0xffff00));
+    scene.add(obj);
+  });
 
-    if (!r) {
-      mostrarModal("❌ Respuesta inválida", "#6b7280");
+  function resaltarZona(nombreZona) {
+    Object.values(zonas).forEach(obj => obj.material.color.setHex(0x999999));
+    if (zonas[nombreZona]) {
+      zonas[nombreZona].material.color.setHex(0x00ff00);
+    } else {
+      alert('Zona no encontrada: ' + nombreZona);
+    }
+  }
+
+  async function buscarUbicacion() {
+    const ref = document.getElementById("inputRef").value.trim();
+    if (!ref) return;
+
+    const { data, error } = await supabaseClient
+      .from("Locations")
+      .select("ubicacion")
+      .eq("referencia", ref)
+      .maybeSingle();
+
+    if (error || !data) {
+      alert("Referencia no encontrada");
       return;
     }
 
-    if (r.status === "ok" && r.color === "verde") {
-      mostrarModal("✅ Producto agregado", "#047857");
-    }
-    else if (r.status === "ok" && r.color === "rojo") {
-      const msg = r.fecha_salida_str
-        ? `🛑 Retirado por ${r.usuario} el ${r.fecha_salida_str}`
-        : "🛑 Producto se va a retirar";
-      mostrarModal(msg, "#b91c1c");
-    }
-    else if (r.status === "repetido") {
-      mostrarModal("📦 Ya escaneado anteriormente", "#0284c7");
-    }
-    else if (r.status === "extraido_previo") {
-      mostrarModal(`⚠️ Ya extraído por ${r.usuario}`, "#facc15");
-    }
-    else if (r.status === "nuevo_producto") {
-      mostrarModal("🆕 Producto no existe", "#22c55e");
-    }
-    else if (r.status === "error" && r.mensaje) {
-      mostrarModal(`⚠️ ${r.mensaje}`, "#6b7280");
-    }
-    else {
-      mostrarModal("❌ Error en el QR", "#6b7280");
-    }
-  } catch (err) {
-    console.error("Error de red:", err);
-    mostrarModal("❌ Error de conexión", "#b91c1c");
+    resaltarZona(data.ubicacion);
   }
-}
 
-const inputQR = document.getElementById("inputQR");
-inputQR.addEventListener("keydown", function(e) {
-  if (e.key === "Enter") {
-    const contenido = inputQR.value.trim();
-    const usuario = document.getElementById("usuario").value.trim();
-    inputQR.value = "";
-    procesarQR(contenido, usuario);
+  function animate() {
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
   }
-});
-  </script>
+  animate();
+
+  window.addEventListener("resize", () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+</script>
 </body>
 </html>
