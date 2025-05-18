@@ -1,116 +1,39 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Visor 3D OBJ - Almacén (Final GitHub Pages)</title>
-  <style>
-    body { margin: 0; overflow: hidden; background: #111; }
-    #info {
-      position: absolute; top: 10px; left: 10px;
-      background: rgba(255,255,255,0.8); padding: 8px 12px;
-      font-family: sans-serif; z-index: 10;
-    }
-    #buscador {
-      position: absolute; top: 10px; right: 10px;
-      background: rgba(255,255,255,0.9); padding: 8px 12px;
-      font-family: sans-serif; z-index: 10;
-    }
-  </style>
+  <meta charset="UTF-8" />
+  <title>Prueba CORS Supabase</title>
 </head>
-<body>
-<div id="info">🔍 Escribe referencia para ubicar producto</div>
-<div id="buscador">
-  <input type="text" id="inputRef" placeholder="Referencia...">
-  <button onclick="buscarUbicacion()">Buscar</button>
-</div>
+<body style="font-family: sans-serif; padding: 2rem;">
+  <h2>🧪 Prueba CORS - actualizar_nip</h2>
+  <p>Haz clic para enviar un <strong>POST</strong> de prueba a Supabase.</p>
+  <button onclick="probarCORS()">Probar solicitud</button>
 
-<!-- Scripts compatibles con GitHub Pages -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.148.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.148.0/examples/js/controls/OrbitControls.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.148.0/examples/js/loaders/OBJLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <pre id="resultado" style="margin-top: 2rem; white-space: pre-wrap; background: #f9f9f9; padding: 1rem; border-radius: 8px;"></pre>
 
-<script>
-  const supabaseClient = supabase.createClient(
-    'https://ldjrpfsbpcfninntffoj.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkanJwZnNicGNmbmlubnRmZm9qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY0MjcxNjYsImV4cCI6MjA2MjAwMzE2Nn0.vxPo7XXaeKPa-jDQRA2jvOJ7dvJZDHRNZB7blbONNZo'
-  );
+  <script>
+    async function probarCORS() {
+      const resultado = document.getElementById("resultado");
+      resultado.textContent = "Enviando solicitud...";
 
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-  camera.position.set(0, 100, 300);
+      try {
+        const res = await fetch("https://ldjrpfsbpcfninntffoj.supabase.co/functions/v1/actualizar_nip", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nip_admin: "1234",
+            nombre: "UsuarioPrueba",
+            nuevo_nip: "0000",
+            nuevas_unidades: ["C03430"]
+          })
+        });
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
-
-  const controls = new THREE.OrbitControls(camera, renderer.domElement);
-  scene.add(new THREE.AmbientLight(0xffffff, 1));
-  const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-  dirLight.position.set(100, 200, 100);
-  scene.add(dirLight);
-
-  const zonas = {};
-
-  const loader = new THREE.OBJLoader();
-  loader.load('ALMACEN.obj', (obj) => {
-    obj.traverse(child => {
-      if (child.isMesh) {
-        child.material = new THREE.MeshStandardMaterial({ color: 0x999999 });
-        zonas[child.name] = child;
+        const texto = await res.text();
+        resultado.textContent = `Código: ${res.status}\n\nRespuesta:\n${texto}`;
+      } catch (err) {
+        resultado.textContent = `❌ Error: ${err}`;
       }
-    });
-
-    const box = new THREE.Box3().setFromObject(obj);
-    const center = new THREE.Vector3();
-    box.getCenter(center);
-    controls.target.copy(center);
-    camera.lookAt(center);
-
-    scene.add(new THREE.BoxHelper(obj, 0xffff00));
-    scene.add(obj);
-  });
-
-  function resaltarZona(nombreZona) {
-    Object.values(zonas).forEach(obj => obj.material.color.setHex(0x999999));
-    if (zonas[nombreZona]) {
-      zonas[nombreZona].material.color.setHex(0x00ff00);
-    } else {
-      alert('Zona no encontrada: ' + nombreZona);
     }
-  }
-
-  async function buscarUbicacion() {
-    const ref = document.getElementById("inputRef").value.trim();
-    if (!ref) return;
-
-    const { data, error } = await supabaseClient
-      .from("Locations")
-      .select("ubicacion")
-      .eq("referencia", ref)
-      .maybeSingle();
-
-    if (error || !data) {
-      alert("Referencia no encontrada");
-      return;
-    }
-
-    resaltarZona(data.ubicacion);
-  }
-
-  window.buscarUbicacion = buscarUbicacion;
-
-  function animate() {
-    requestAnimationFrame(animate);
-    renderer.render(scene, camera);
-  }
-  animate();
-
-  window.addEventListener("resize", () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
-</script>
+  </script>
 </body>
 </html>
